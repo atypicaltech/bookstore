@@ -4,17 +4,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"bookstore.atypicaltech.dev/models"
 )
 
 type mockBookModel struct{}
 
-func (m *mockBookModel) All() ([]models.Book, error) {
-	var bks []models.Book
+func (m *mockBookModel) All() ([]Book, error) {
+	var bks []Book
 
-	bks = append(bks, models.Book{Isbn: "978-1503261969", Title: "Emma", Author: "Jayne Austen", Price: 9.44})
-	bks = append(bks, models.Book{Isbn: "978-1505255607", Title: "The Time Machine", Author: "H. G. Wells", Price: 5.99})
+	bks = append(bks, Book{Isbn: "978-1503261969", Title: "Emma", Author: "Jayne Austen", Price: 9.44})
+	bks = append(bks, Book{Isbn: "978-1505255607", Title: "The Time Machine", Author: "H. G. Wells", Price: 5.99})
 
 	return bks, nil
 }

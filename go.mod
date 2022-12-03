@@ -1,4 +1,4 @@
-module bookstore.atypicaltech.dev
+module bookstore
 
 go 1.19
 

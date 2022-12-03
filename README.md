@@ -11,7 +11,7 @@ docker build -t bookstore:latest .
 ### Tag image for Digital Ocean registry
 
 ```sh
-docker tag blog registry.digitalocean.com/at-docker/bookstore
+docker tag bookstore registry.digitalocean.com/at-docker/bookstore
 ```
 
 ### Push image to Digital Ocean registry

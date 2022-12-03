@@ -14,7 +14,7 @@ RUN apt-get update -y \
 
 COPY go.mod ./
 COPY go.sum ./
-COPY ./* ./
+COPY ./*.go ./
 RUN go mod download \
     && go mod tidy \
     && go build -o /bookstore
@@ -27,5 +27,4 @@ WORKDIR /
 
 COPY --from=build /bookstore /bookstore
 
-USER nonroot:nonroot
 ENTRYPOINT ["/bookstore"]
