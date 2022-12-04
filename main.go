@@ -1,47 +1,62 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 
+	vault "github.com/hashicorp/vault/api"
 	_ "github.com/lib/pq"
 	"github.com/spf13/viper"
 )
 
 const (
-	SECRETS_FILE = "SECRETS_FILE"
-	PORT         = "PORT"
-	DB_HOST      = "DB_HOST"
-	DB_PORT      = "DB_PORT"
-	DB_NAME      = "DB_NAME"
-	DB_USER      = "DB_USER"
-	DB_PASS      = "DB_PASS"
+	PORT             = "PORT"
+	VAULT_ADDR       = "VAULT_ADDR"
+	VAULT_TOKEN_FILE = "VAULT_TOKEN_FILE"
+
+	DB_HOST = "DB_HOST"
+	DB_PORT = "DB_PORT"
+	DB_NAME = "DB_NAME"
+	DB_USER = "DB_USER"
+	DB_PASS = "DB_PASS"
 )
 
 var (
-	conf       *viper.Viper
-	configPath string
-	configName string
+	conf *viper.Viper
 )
 
 func init() {
 	conf = viper.New()
+	conf.AutomaticEnv()
 
-	if usingVaultSecrets() {
-		conf.AddConfigPath(configPath)
-		conf.SetConfigName(configName)
-		err := conf.ReadInConfig()
-		if err != nil {
-			panic(fmt.Errorf("fatal error config file: %w", err))
-		}
+	client, err := vault.NewClient(vault.DefaultConfig())
+	if err != nil {
+		log.Fatalf("unable to initialize Vault client: %v", err)
 	}
 
-	conf.AutomaticEnv()
+	vaultTokenFile := conf.GetString(VAULT_TOKEN_FILE)
+	if _, err := os.Stat(vaultTokenFile); err == nil {
+		tokenBytes, err := ioutil.ReadFile(vaultTokenFile)
+		if err != nil {
+			log.Fatalf("problem reading vault token: %v", err)
+		}
+		client.SetToken(string(tokenBytes))
+	}
+
+	secret, err := client.KVv2("internal").Get(context.Background(), "bookstore/env")
+	if err != nil {
+		log.Fatalf("unable to read secret: %v", err)
+	}
+
+	err = conf.MergeConfigMap(secret.Data)
+	if err != nil {
+		log.Fatalf("unable to merge secret: %v", err)
+	}
 }
 
 func main() {
@@ -73,7 +88,6 @@ type Env struct {
 }
 
 func (env *Env) booksIndex(w http.ResponseWriter, r *http.Request) {
-	// Execute the SQL query by calling the All() method.
 	bks, err := env.books.All()
 	if err != nil {
 		log.Print(err)
@@ -123,22 +137,4 @@ func (m BookModel) All() ([]Book, error) {
 	}
 
 	return bks, nil
-}
-
-func usingVaultSecrets() bool {
-	fullSecretsPath := os.Getenv(SECRETS_FILE)
-	if fullSecretsPath == "" {
-		return false
-	}
-
-	secrets, err := filepath.Abs(fullSecretsPath)
-	if err != nil {
-		return false
-	}
-
-	configPath = filepath.Dir(secrets)
-	fileName := filepath.Base(secrets)
-	configName = strings.TrimSuffix(fileName, filepath.Ext(configName))
-
-	return strings.Contains(configPath, "/vault/secrets")
 }
