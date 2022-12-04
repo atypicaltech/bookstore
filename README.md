@@ -43,7 +43,6 @@ insert into books (isbn, title, author, price) values
 ('978-1503379640', 'The Prince', 'Niccolò Machiavelli', 6.99);
 ```
 
-
 ## Variables
 
 | Variable | Description | Required? |
