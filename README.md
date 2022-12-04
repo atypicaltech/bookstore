@@ -51,16 +51,16 @@ insert into books (isbn, title, author, price) values
 ## Variables
 
 | Variable | Description | Required? |
-|:---------|:-----------:|----------:|
+|:---------|:-----------:|:---------:|
 | PORT | Port to run server on | yes |
-| VAULT_ADDR | Port to run server on | yes |
-| VAULT_ROLE | Port to run server on | yes |
-| VAULT_KV_MOUNT | Port to run server on | yes |
-| VAULT_BOOKSTORE_ENV | Port to run server on | yes |
-| KUBE_SVC_ACCT_TOKEN | Port to run server on | yes |
-| DB_HOST | "DB_HOST" | yes |
-| DB_PORT | "DB_PORT" | yes |
-| DB_NAME | "DB_NAME" | yes |
-| DB_USER | "DB_USER" | yes |
-| DB_PASS | "DB_PASS" | yes |
-| DB_SSL  | "DB_SSL" | yes |
+| VAULT_ADDR | Address of Vault server for secrets | yes |
+| VAULT_ROLE | Vault role to login with | yes |
+| VAULT_KV_MOUNT | Vault KV mount containing secrets | yes |
+| VAULT_BOOKSTORE_ENV | Path to bookstore env secret | yes |
+| KUBE_SVC_ACCT_TOKEN | Path to kubernetes service account token (used to login to Vault as service account) | yes |
+| DB_HOST | Database host | yes |
+| DB_PORT | Database port | yes |
+| DB_NAME | Database name | yes |
+| DB_USER | Database user | yes |
+| DB_PASS | Database password | yes |
+| DB_SSL  | Database SSL option flag | yes |
