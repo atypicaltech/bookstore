@@ -85,24 +85,40 @@ func main() {
 		books: BookModel{DB: db},
 	}
 
+	http.HandleFunc("/healthz", env.appHealth)
+	http.HandleFunc("/readyz", env.appReady)
+
 	http.HandleFunc("/books", env.booksIndex)
 
-	http.HandleFunc("/healthz", env.booksHealth)
-	http.HandleFunc("/readyz", env.booksReady)
 	http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 }
 
 type Env struct {
+	app interface {
+		CheckDBConn() error
+	}
 	books interface {
 		All() ([]Book, error)
 	}
 }
 
-func (env *Env) booksHealth(w http.ResponseWriter, r *http.Request) {
+func (env *Env) appHealth(w http.ResponseWriter, r *http.Request) {
+	err := env.app.CheckDBConn()
+	if err != nil {
+		log.Print(err)
+		http.Error(w, http.StatusText(500), 500)
+	}
+
 	Respond(w, http.StatusText(200), 200)
 }
 
-func (env *Env) booksReady(w http.ResponseWriter, r *http.Request) {
+func (env *Env) appReady(w http.ResponseWriter, r *http.Request) {
+	err := env.app.CheckDBConn()
+	if err != nil {
+		log.Print(err)
+		http.Error(w, http.StatusText(500), 500)
+	}
+
 	Respond(w, http.StatusText(200), 200)
 }
 
@@ -186,4 +202,31 @@ func Respond(w http.ResponseWriter, text string, code int) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(code)
 	fmt.Fprintln(w, text)
+}
+
+type App struct {
+	DB *sql.DB
+}
+
+// Use a method on the custom BookModel type to run the SQL query.
+func (a App) CheckDBConn() error {
+	rows, err := a.DB.Query("SELECT 1")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var health int
+
+		err := rows.Scan(&health)
+		if err != nil {
+			return err
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+
+	return nil
 }
