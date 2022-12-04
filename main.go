@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -41,7 +40,7 @@ func init() {
 
 	vaultTokenFile := conf.GetString(VAULT_TOKEN_FILE)
 	if _, err := os.Stat(vaultTokenFile); err == nil {
-		tokenBytes, err := ioutil.ReadFile(vaultTokenFile)
+		tokenBytes, err := os.ReadFile(vaultTokenFile)
 		if err != nil {
 			log.Fatalf("problem reading vault token: %v", err)
 		}
