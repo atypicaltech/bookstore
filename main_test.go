@@ -17,6 +17,16 @@ func (m *mockBookModel) All() ([]Book, error) {
 	return bks, nil
 }
 
+func (m *mockBookModel) Get(isbn string) (*Book, error) {
+	bk := Book{Isbn: "978-1505255607", Title: "The Time Machine", Author: "H. G. Wells", Price: 5.99}
+
+	return &bk, nil
+}
+
+func (m *mockBookModel) Create(book *Book) error {
+	return nil
+}
+
 func TestBooksIndex(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/books", nil)
