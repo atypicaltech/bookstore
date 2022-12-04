@@ -6,17 +6,18 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	vault "github.com/hashicorp/vault/api"
+	auth "github.com/hashicorp/vault/api/auth/kubernetes"
 	_ "github.com/lib/pq"
 	"github.com/spf13/viper"
 )
 
 const (
-	PORT             = "PORT"
-	VAULT_ADDR       = "VAULT_ADDR"
-	VAULT_TOKEN_FILE = "VAULT_TOKEN_FILE"
+	KUBE_SVC_ACCT_TOKEN = "KUBE_SVC_ACCT_TOKEN"
+	PORT                = "PORT"
+	VAULT_ADDR          = "VAULT_ADDR"
+	VAULT_ROLE          = "VAULT_ROLE"
 
 	DB_HOST = "DB_HOST"
 	DB_PORT = "DB_PORT"
@@ -38,13 +39,9 @@ func init() {
 		log.Fatalf("unable to initialize Vault client: %v", err)
 	}
 
-	vaultTokenFile := conf.GetString(VAULT_TOKEN_FILE)
-	if _, err := os.Stat(vaultTokenFile); err == nil {
-		tokenBytes, err := os.ReadFile(vaultTokenFile)
-		if err != nil {
-			log.Fatalf("problem reading vault token: %v", err)
-		}
-		client.SetToken(string(tokenBytes))
+	err = loginVaultKubernetes(client)
+	if err != nil {
+		log.Println("vault login failed: %w", err)
 	}
 
 	secret, err := client.KVv2("internal").Get(context.Background(), "bookstore/env")
@@ -136,4 +133,25 @@ func (m BookModel) All() ([]Book, error) {
 	}
 
 	return bks, nil
+}
+
+func loginVaultKubernetes(client *vault.Client) error {
+	vaultRole := conf.GetString(VAULT_ROLE)
+	k8sAuth, err := auth.NewKubernetesAuth(
+		vaultRole,
+		auth.WithServiceAccountTokenPath(KUBE_SVC_ACCT_TOKEN),
+	)
+	if err != nil {
+		return fmt.Errorf("unable to initialize Kubernetes auth method: %w", err)
+	}
+
+	authInfo, err := client.Auth().Login(context.Background(), k8sAuth)
+	if err != nil {
+		return fmt.Errorf("unable to log in with Kubernetes auth: %w", err)
+	}
+	if authInfo == nil {
+		return fmt.Errorf("no auth info was returned after login")
+	}
+
+	return nil
 }

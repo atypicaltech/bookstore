@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/hashicorp/vault/api v1.8.2
+	github.com/hashicorp/vault/api/auth/kubernetes v0.3.0
 	github.com/lib/pq v1.10.7
 	github.com/spf13/viper v1.14.0
 )
