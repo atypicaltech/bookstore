@@ -86,6 +86,9 @@ func main() {
 	}
 
 	http.HandleFunc("/books", env.booksIndex)
+
+	http.HandleFunc("/healthz", env.booksHealth)
+	http.HandleFunc("/readyz", env.booksReady)
 	http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 }
 
@@ -93,6 +96,14 @@ type Env struct {
 	books interface {
 		All() ([]Book, error)
 	}
+}
+
+func (env *Env) booksHealth(w http.ResponseWriter, r *http.Request) {
+	Respond(w, http.StatusText(200), 200)
+}
+
+func (env *Env) booksReady(w http.ResponseWriter, r *http.Request) {
+	Respond(w, http.StatusText(200), 200)
 }
 
 func (env *Env) booksIndex(w http.ResponseWriter, r *http.Request) {
@@ -168,4 +179,11 @@ func loginVaultKubernetes(client *vault.Client) error {
 	}
 
 	return nil
+}
+
+func Respond(w http.ResponseWriter, text string, code int) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(code)
+	fmt.Fprintln(w, text)
 }
