@@ -46,3 +46,21 @@ insert into books (isbn, title, author, price) values
 ('978-1505255607', 'The Time Machine', 'H. G. Wells', 5.99),
 ('978-1503379640', 'The Prince', 'Niccolò Machiavelli', 6.99);
 ```
+
+
+## Variables
+
+| Variable | Description | Required? |
+|:---------|:-----------:|----------:|
+| PORT | Port to run server on | yes |
+| VAULT_ADDR | Port to run server on | yes |
+| VAULT_ROLE | Port to run server on | yes |
+| VAULT_KV_MOUNT | Port to run server on | yes |
+| VAULT_BOOKSTORE_ENV | Port to run server on | yes |
+| KUBE_SVC_ACCT_TOKEN | Port to run server on | yes |
+| DB_HOST | "DB_HOST" | yes |
+| DB_PORT | "DB_PORT" | yes |
+| DB_NAME | "DB_NAME" | yes |
+| DB_USER | "DB_USER" | yes |
+| DB_PASS | "DB_PASS" | yes |
+| DB_SSL  | "DB_SSL" | yes |
