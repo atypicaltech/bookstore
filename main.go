@@ -14,16 +14,21 @@ import (
 )
 
 const (
-	KUBE_SVC_ACCT_TOKEN = "KUBE_SVC_ACCT_TOKEN"
-	PORT                = "PORT"
+	PORT = "PORT"
+
 	VAULT_ADDR          = "VAULT_ADDR"
 	VAULT_ROLE          = "VAULT_ROLE"
+	VAULT_KV_MOUNT      = "VAULT_KV_MOUNT"
+	VAULT_BOOKSTORE_ENV = "VAULT_BOOKSTORE_ENV"
+
+	KUBE_SVC_ACCT_TOKEN = "KUBE_SVC_ACCT_TOKEN"
 
 	DB_HOST = "DB_HOST"
 	DB_PORT = "DB_PORT"
 	DB_NAME = "DB_NAME"
 	DB_USER = "DB_USER"
 	DB_PASS = "DB_PASS"
+	DB_SSL  = "DB_SSL"
 )
 
 var (
@@ -33,6 +38,9 @@ var (
 func init() {
 	conf = viper.New()
 	conf.AutomaticEnv()
+
+	kvMount := conf.GetString(VAULT_KV_MOUNT)
+	bookstoreEnv := conf.GetString(VAULT_BOOKSTORE_ENV)
 
 	client, err := vault.NewClient(vault.DefaultConfig())
 	if err != nil {
@@ -44,7 +52,7 @@ func init() {
 		log.Println("vault login failed: %w", err)
 	}
 
-	secret, err := client.KVv2("internal").Get(context.Background(), "bookstore/env")
+	secret, err := client.KVv2(kvMount).Get(context.Background(), bookstoreEnv)
 	if err != nil {
 		log.Fatalf("unable to read secret: %v", err)
 	}
@@ -56,13 +64,17 @@ func init() {
 }
 
 func main() {
+	port := conf.GetString(PORT)
+
+	dbUser := conf.GetString(DB_USER)
+	dbPass := conf.GetString(DB_PASS)
+	dbHost := conf.GetString(DB_HOST)
+	dbPort := conf.GetString(DB_PORT)
+	dbName := conf.GetString(DB_NAME)
+	dbSSL := conf.GetString(DB_SSL)
+
 	dataSourceName := fmt.Sprintf(
-		"postgres://%s:%s@%s/%s?sslmode=disable",
-		conf.Get(DB_USER),
-		conf.Get(DB_PASS),
-		conf.Get(DB_HOST),
-		conf.Get(DB_NAME),
-	)
+		"postgres://%s:%s@%s:%s/%s?sslmode=%s", dbUser, dbPass, dbHost, dbPort, dbName, dbSSL)
 
 	db, err := sql.Open("postgres", dataSourceName)
 	if err != nil {
@@ -74,7 +86,7 @@ func main() {
 	}
 
 	http.HandleFunc("/books", env.booksIndex)
-	http.ListenAndServe(fmt.Sprintf(":%s", conf.Get(PORT)), nil)
+	http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
 }
 
 type Env struct {
@@ -137,9 +149,11 @@ func (m BookModel) All() ([]Book, error) {
 
 func loginVaultKubernetes(client *vault.Client) error {
 	vaultRole := conf.GetString(VAULT_ROLE)
+	kubeToken := conf.GetString(KUBE_SVC_ACCT_TOKEN)
+
 	k8sAuth, err := auth.NewKubernetesAuth(
 		vaultRole,
-		auth.WithServiceAccountTokenPath(KUBE_SVC_ACCT_TOKEN),
+		auth.WithServiceAccountTokenPath(kubeToken),
 	)
 	if err != nil {
 		return fmt.Errorf("unable to initialize Kubernetes auth method: %w", err)
