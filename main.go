@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	vault "github.com/hashicorp/vault/api"
 	auth "github.com/hashicorp/vault/api/auth/kubernetes"
 	_ "github.com/lib/pq"
@@ -83,14 +85,19 @@ func main() {
 
 	env := &Env{
 		books: BookModel{DB: db},
+		app:   App{DB: db},
 	}
 
-	http.HandleFunc("/healthz", env.appHealth)
-	http.HandleFunc("/readyz", env.appReady)
+	router := mux.NewRouter().StrictSlash(true)
 
-	http.HandleFunc("/books", env.booksIndex)
+	router.HandleFunc("/healthz", env.appHealth).Methods("GET")
+	router.HandleFunc("/readyz", env.appReady).Methods("GET")
 
-	http.ListenAndServe(fmt.Sprintf(":%s", port), nil)
+	router.HandleFunc("/books", env.booksIndex).Methods("GET")
+	router.HandleFunc("/books", env.createBook).Methods("POST")
+	router.HandleFunc("/books/{isbn}", env.bookByISBN).Methods("GET")
+
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), router))
 }
 
 type Env struct {
@@ -99,6 +106,8 @@ type Env struct {
 	}
 	books interface {
 		All() ([]Book, error)
+		Get(isbn string) (*Book, error)
+		Create(book *Book) error
 	}
 }
 
@@ -130,16 +139,48 @@ func (env *Env) booksIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for _, bk := range bks {
-		fmt.Fprintf(w, "%s, %s, %s, $%.2f\n", bk.Isbn, bk.Title, bk.Author, bk.Price)
+	json.NewEncoder(w).Encode(bks)
+}
+
+func (env *Env) bookByISBN(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	isbn := vars["isbn"]
+
+	bk, err := env.books.Get(isbn)
+	if err != nil {
+		log.Print(err)
+		http.Error(w, http.StatusText(500), 500)
+		return
 	}
+
+	json.NewEncoder(w).Encode(bk)
+}
+
+func (env *Env) createBook(w http.ResponseWriter, r *http.Request) {
+	var bk Book
+
+	err := json.NewDecoder(r.Body).Decode(&bk)
+	if err != nil {
+		log.Print(err)
+		http.Error(w, http.StatusText(400), 400)
+		return
+	}
+
+	err = env.books.Create(&bk)
+	if err != nil {
+		log.Print(err)
+		http.Error(w, http.StatusText(500), 500)
+		return
+	}
+
+	json.NewEncoder(w).Encode(&bk)
 }
 
 type Book struct {
-	Isbn   string
-	Title  string
-	Author string
-	Price  float32
+	Isbn   string  `json:"ISBN"`
+	Title  string  `json:"Title"`
+	Author string  `json:"Author"`
+	Price  float32 `json:"Price"`
 }
 
 // Create a custom BookModel type which wraps the sql.DB connection pool.
@@ -149,7 +190,13 @@ type BookModel struct {
 
 // Use a method on the custom BookModel type to run the SQL query.
 func (m BookModel) All() ([]Book, error) {
-	rows, err := m.DB.Query("SELECT * FROM books")
+	stmt, err := m.DB.Prepare("SELECT * FROM books")
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query()
 	if err != nil {
 		return nil, err
 	}
@@ -172,6 +219,38 @@ func (m BookModel) All() ([]Book, error) {
 	}
 
 	return bks, nil
+}
+
+// Use a method on the custom BookModel type to run the SQL query.
+func (m BookModel) Get(isbn string) (*Book, error) {
+	var bk Book
+	stmt, err := m.DB.Prepare("SELECT * FROM books WHERE isbn=$1;")
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	err = stmt.QueryRow(isbn).Scan(&bk.Isbn, &bk.Title, &bk.Author, &bk.Price)
+	if err != nil {
+		return nil, err
+	}
+
+	return &bk, nil
+}
+
+func (m BookModel) Create(bk *Book) error {
+	stmt, err := m.DB.Prepare("INSERT INTO books (isbn, title, author, price) VALUES ($1, $2, $3, $4);")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(bk.Isbn, bk.Title, bk.Author, bk.Price)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func loginVaultKubernetes(client *vault.Client) error {
@@ -217,7 +296,7 @@ func (a App) CheckDBConn() error {
 	defer rows.Close()
 
 	for rows.Next() {
-		var health int
+		var health any
 
 		err := rows.Scan(&health)
 		if err != nil {
