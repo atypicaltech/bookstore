@@ -5,26 +5,22 @@
 ### Build image (docker)
 
 ```sh
-docker build -t bookstore:latest .
+./scripts/build_and_push.sh $tag
 ```
 
-### Tag image for Digital Ocean registry
+## Database
 
-```sh
-docker tag bookstore registry.digitalocean.com/at-docker/bookstore
-```
+### Log in to database
 
-### Push image to Digital Ocean registry
-
-```sh
-docker push registry.digitalocean.com/at-docker/bookstore
-```
+Log in to the database to run the following SQL. It can also be done via Adminer.
 
 ```sh
 # login as posgres to create database, table and user
 # this can be done through adminer as well
 PGPASSWORD=$POSTGRES_PASSWORD psql --host 127.0.0.1 -U postgres -d postgres -p 5432
 ```
+
+### Create database, user, and seed
 
 ```sql
 create database bookstore;
